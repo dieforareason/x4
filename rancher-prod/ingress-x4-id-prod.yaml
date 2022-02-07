@@ -1,0 +1,57 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-x4-id-prod
+  namespace: x4-rancher
+  annotations:
+    kubernetes.io/ingress.allow-http: "false"
+    kubernetes.io/ingress.global-static-ip-name: x4-id-prod-test
+    networking.gke.io/managed-certificates: id2-certificate
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          serviceName: x4-audit-service
+          servicePort: 8080
+        path: /audit/*
+      - backend:
+          serviceName: x4-auth-service
+          servicePort: 8080
+        path: /auth/*
+      - backend:
+          serviceName: x4-blobstore-service
+          servicePort: 8080
+        path: /blobstore/*
+      - backend:
+          serviceName: x4-document-service
+          servicePort: 8080
+        path: /document/*
+      - backend:
+          serviceName: x4-finconfig-service
+          servicePort: 8080
+        path: /finconfig/*
+      - backend:
+          serviceName: x4-inout-service
+          servicePort: 8080
+        path: /inout/*
+      - backend:
+          serviceName: x4-inventory-service
+          servicePort: 8080
+        path: /inventory/*
+      - backend:
+          serviceName: x4-notification-service
+          servicePort: 8080
+        path: /notification/*
+      - backend:
+          serviceName: x4-task-service
+          servicePort: 8080
+        path: /task/*
+      - backend:
+          serviceName: x4-uoa-service
+          servicePort: 8080
+        path: /uoa/*
+      - backend:
+          serviceName: x4-webapp-service
+          servicePort: 80
+        path: /*

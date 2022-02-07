@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: x4-auth
+  namespace: x4-s24
+  name: x4-auth-configmap
+data:
+  application.properties: |
+    spring.profiles.active=development
+    spring.datasource.url=jdbc:mysql://mysql-0.mysql-service.x4-s24.svc.cluster.local:3306/x4_audit?useLegacyDatetimeCode=false&serverTimezone=UTC
+    spring.datasource.username=${mysql-user}
+    spring.datasource.password=${mysql-password}
+    spring.activemq.broker-url=tcp://activemq-service:61616
+    spring.activemq.username=${activemq-user}
+    spring.activemq.password=${activemq-password}
+    spring.redis.url=redis-service
+    spring.redis.port=6379
+    ldap.provider-url=ldap://ldap-service:389/dc=xchange4
+    ldap.password-policy-subentry=cn=ppolicy,dc=xchange4
+    spring.config.use-legacy-processing=true
+    server.port=8080
+    server.servlet.contextpath=/
+    feign.uoa-service=http://x4-uoa-service:8080/
+    jwt.signing-key=${jwt-signing-key}
+    management.endpoints.web.exposure.include=health,info
+    spring.security.oauth2.resourceserver.jwt.issuer-uri=http://x4-auth-service:8080/auth
+    spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://x4-auth-service:8080/auth/oauth2/jwks
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: x4-auth
+  name: x4-auth-service
+  namespace: x4-s24
+spec:
+  type: NodePort
+  selector:
+    app: x4-auth
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: x4-auth
+  namespace: x4-s24
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 25%
+  progressDeadlineSeconds: 600
+  selector:
+    matchLabels:
+      app: x4-auth
+  template:
+    metadata:
+      labels:
+        app: x4-auth
+        log-format: json
+    spec:
+      priorityClassName: medium-priority
+      containers:
+      - name: x4-auth
+        image: pkg.asyx.com:5000/asyx/x4-auth-application:4.3.1-275
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        env:
+        - name: mysql-user
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: mysql-asyx-user
+        - name: mysql-password
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key:  mysql-asyx-password
+        - name: jwt-signing-key
+          valueFrom:
+            secretKeyRef:
+              name: jwt-signing-key-secret
+              key: secret
+        - name: activemq-user
+          valueFrom:
+            secretKeyRef:
+              name: activemq-secret
+              key: activemq-user
+        - name: activemq-password
+          valueFrom:
+            secretKeyRef:
+              name: activemq-secret
+              key: activemq-password
+        volumeMounts:
+        - name: x4-auth-config
+          mountPath: /x4/config/application.properties
+          subPath: application.properties
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          failureThreshold: 3
+          periodSeconds: 10
+          initialDelaySeconds: 180
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          failureThreshold: 3
+          periodSeconds: 10
+          initialDelaySeconds: 60
+      imagePullSecrets:
+      - name: asyx-docker-prod-secret
+      volumes:
+      - name: x4-auth-config
+        configMap:
+          name: x4-auth-configmap

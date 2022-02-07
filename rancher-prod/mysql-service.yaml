@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: mysql
+    service: mysql
+  name: mysql-service
+  namespace: x4-s24
+spec:
+  clusterIP: None
+  selector:
+    app: mysql
+  ports:
+  - name: tcp-transfer
+    port: 3306
+    targetPort: 3306
+---                     
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: x4-s24
+  labels:
+     app: mysql
+spec:
+  replicas: 1
+  updateStrategy:
+    type: OnDelete
+  serviceName: mysql-service
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      priorityClassName: high-priority
+      containers:
+        - image: centos/mysql-80-centos7:8.0
+          imagePullPolicy: Always
+          name: mysql
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 200m
+          ports:
+          - name: tcp-transfer
+            containerPort: 3306
+            protocol: TCP
+          env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysql-secret
+                key: mysql-password-root
+          volumeMounts:
+          - name: mysql
+            mountPath: /var/lib/mysql
+          - name: mysql-config
+            mountPath: /etc/mysql/my.cnf
+            subPath: my.cnf
+          - name: docker-config
+            mountPath: /etc/mysql/conf.d/docker.cnf
+            subPath: docker.cnf
+          - name: mysql-conf
+            mountPath: /etc/mysql/conf.d/mysql.cnf
+            subPath: mysql.cnf 
+          - name: mysql-conf-d
+            mountPath: /etc/mysql/mysql.conf.d/mysqld.cnf
+            subPath: mysqld.cnf
+      imagePullSecrets: 
+        - name: asyx-docker-stag-secret
+      volumes:
+        - name: mysql
+          persistentVolumeClaim:
+            claimName: pvc-mysql-rancher
+        - name: mysql-config
+          configMap:
+            name: mysql-configmap2
+        - name: docker-config
+          configMap:
+            name: docker-cnf
+        - name: mysql-conf
+          configMap:
+            name: mysql-conf
+        - name: mysql-conf-d
+          configMap:
+            name: mysql-conf-d

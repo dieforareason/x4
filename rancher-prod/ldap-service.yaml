@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ldap
+    service: ldap
+  name: ldap-service
+  namespace: x4-s24
+spec:
+  type: ClusterIP
+  selector:
+    app: ldap
+  ports:
+  - name: tcp-ldap
+    port: 389
+    protocol: TCP
+    targetPort: 389
+  - name: tcp-ldaps
+    port: 636
+    protocol: TCP
+    targetPort: 636
+  sessionAffinity: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ldap
+  namespace: x4-s24
+  labels:
+    app: ldap
+spec:
+  replicas: 1
+  updateStrategy:
+    type: OnDelete
+  serviceName: ldap-service
+  selector:
+    matchLabels:
+      app: ldap
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: ldap
+        version: v1
+    spec:
+      priorityClassName: high-priority
+      containers:
+        - image: pkg.asyx.com:5000/asyx/389-ds:1.3.9.1-215
+          imagePullPolicy: Always
+          name: ldap
+          resources:
+            requests:
+              memory: 384Mi
+              cpu: 100m
+          ports:
+          - containerPort: 389
+            name: ldap
+            protocol: TCP
+          - containerPort: 636
+            name: ldaps
+            protocol: TCP
+          volumeMounts:
+          - name: ldap-data
+            mountPath: /var/lib/dirsrv
+      imagePullSecrets: 
+        - name: asyx-docker-prod-secret
+      securityContext:
+        fsGroup: 99
+      volumes:
+        - name: ldap-data
+          persistentVolumeClaim:
+            claimName: pvc-ldap-rancher

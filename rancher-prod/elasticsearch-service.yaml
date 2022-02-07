@@ -1,0 +1,155 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-service
+  namespace: x4-s24
+spec:
+  type: ClusterIP
+  selector:
+    app: elasticsearch
+  ports:
+  - name: http
+    port: 9200
+    targetPort: 9200
+  - name: transport
+    port: 9300
+    targetPort: 9300
+  sessionAffinity: None
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+   labels:
+     app: elasticsearch
+   namespace: x4-s24
+   name: elasticsearch-clustering-configmaps-1
+data:
+  elasticsearch.yml: |
+    cluster.name: xchange4-cluster
+    discovery.zen.join_timeout: 30s
+    discovery.zen.minimum_master_nodes: 0
+    discovery.zen.ping.unicast.hosts: ["elasticsearch-service:9300"]
+    discovery.zen.no_master_block: all
+    cluster.initial_master_nodes: xchange4-cluster
+    transport.tcp.port: 9300
+    network.host: 0.0.0.0
+    node.name: xchange4
+    node.data: true
+    node.master: true
+    path.logs: /var/log/elasticsearch
+    path.data: /var/lib/elasticsearch/xchange4
+    path.repo: /var/lib/elasticsearch/backup
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: elasticsearch-rancher-1
+  namespace: x4-s24
+spec:
+  storageClassName: gp2
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  awsElasticBlockStore:
+    volumeID: "vol-0ca974c33e49a3a61"
+    fsType: ext4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elasticsearch-rancher-1
+  namespace: x4-s24
+spec:
+  storageClassName: gp2
+  volumeName: elasticsearch-rancher-1
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch-cluster-1
+  namespace: x4-s24
+  labels:
+    app: elasticsearch
+spec:
+  replicas: 1
+  updateStrategy:
+    type: OnDelete
+  serviceName: elasticsearch-service
+  selector:
+    matchLabels:
+      app: elasticsearch
+      log-format: json
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+        log-format: json
+    spec:
+      priorityClassName: high-priority
+      containers:
+        - image: pkg.asyx.com:5000/asyx/elasticsearch:7.16.2-163
+          imagePullPolicy: Always
+          name: elasticsearch
+          resources:
+            requests:
+              memory: 1280Mi
+              cpu: 200m
+          ports:
+          - name: http
+            containerPort: 9200
+            protocol: TCP
+          - name: transport
+            containerPort: 9300
+            protocol: TCP
+          volumeMounts:
+          - name: elasticsearch-data
+            mountPath: /var/lib/elasticsearch
+          - name: elasticsearch-config
+            mountPath: /etc/elasticsearch/elasticsearch.yml
+            subPath: elasticsearch.yml
+      imagePullSecrets: 
+        - name: asyx-docker-prod-secret
+      initContainers:
+      - image: busybox
+        imagePullPolicy: Always
+        name: fix-permissions
+        resources: {}
+      - command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        image: busybox
+        imagePullPolicy: Always
+        name: increase-vm-max-map
+        resources: {}
+        securityContext:
+          privileged: true
+          procMount: Default
+      - command:
+        - sh
+        - -c
+        - ulimit -n 65536
+        image: busybox
+        imagePullPolicy: Always
+        name: increase-fd-ulimit
+        resources: {}
+        securityContext:
+          privileged: true
+          procMount: Default
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      securityContext:
+        fsGroup: 999
+      volumes:
+        - name: elasticsearch-data
+          persistentVolumeClaim:
+            claimName: elasticsearch-rancher-1
+        - name: elasticsearch-config
+          configMap:
+            name: elasticsearch-clustering-configmaps-1

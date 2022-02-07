@@ -1,0 +1,8 @@
+apiVersion: networking.gke.io/v1beta1
+kind: ManagedCertificate
+metadata:
+  name: id2-certificate
+  namespace: x4-rancher
+spec:
+  domains:
+    - id2.asyx.com

@@ -1,0 +1,1 @@
+kubectl create configmap -n x4-s24  mysql-conf.d  --from-file=mysqld.cnf

@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: activemq
+    service: activemq
+  name: activemq-service
+  namespace: x4-s24
+spec:
+  clusterIP: None
+  selector:
+    app: activemq
+  ports:
+  - name: tcp-admin
+    port: 8161
+    protocol: TCP
+    targetPort: 8161
+  - port: 61616
+    name: tcp-broker
+    protocol: TCP
+    targetPort: 61616
+  sessionAffinity: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: activemq
+  namespace: x4-s24
+spec:
+  replicas: 1
+  updateStrategy:
+    type: OnDelete
+  serviceName: activemq-service
+  selector:
+    matchLabels:
+      app: activemq
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: activemq
+        version: v1
+        log-format: json
+    spec:
+      priorityClassName: high-priority
+      containers:
+        - image: pkg.asyx.com:5000/asyx/activemq:5.15.10-48
+          imagePullPolicy: Always
+          name: activemq
+          resources:
+            requests:
+              memory: 384Mi
+              cpu: 100m
+          ports:
+          - containerPort: 8161
+            name: admin
+            protocol: TCP
+          - containerPort: 61616
+            name: broker  
+            protocol: TCP
+          - containerPort: 5672
+            name: amqp
+            protocol: TCP
+          - containerPort: 61613
+            name: stomp
+            protocol: TCP
+          - containerPort: 1883
+            name: mqtt
+            protocol: TCP
+          - containerPort: 61614
+            protocol: TCP
+          volumeMounts:
+          - name: activemq-data
+            mountPath: /var/lib/activemq
+      imagePullSecrets: 
+        - name: asyx-docker-prod-secret
+      securityContext:
+        fsGroup: 445
+      volumes:
+        - name: activemq-data
+          persistentVolumeClaim:
+            claimName: pvc-activemq-rancher
