@@ -3,17 +3,15 @@ kind: Service
 metadata:
   labels:
      app: mailrelay
-     service: mailrelay
   name: mailrelay-service
   annotations:
   namespace: x4-s24
 spec:
-  clusterIP: None
+  type: ClusterIP
   selector:
     app: mailrelay
   ports:
   - protocol: TCP
-    name: tcp-mailrelay
     port: 25
     targetPort: 25
 ---
@@ -33,17 +31,15 @@ spec:
   selector:
     matchLabels:
       app: mailrelay
-      version: v1
   template:
     metadata:
       labels:
         app: mailrelay
-        version: v1
     spec:
       containers:
       - env:
         - name: RELAY_HOST_NAME
-          value: id2test.asyx.com
+          value: s19.asyx.com
         - name: EXT_RELAY_HOST
           value: email-smtp.us-east-1.amazonaws.com
         - name: EXT_RELAY_PORT
@@ -60,7 +56,7 @@ spec:
               name: mailrelay-credentials
         - name: USE_TLS
           value: "yes"
-        image: alterrebe/postfix-relay
+        image: pkg.asyx.com:5000/asyx/postfix:3.7-39
         imagePullPolicy: Always
         name: mailrelay
         resources:
@@ -70,3 +66,5 @@ spec:
         ports:
         - containerPort: 25
           protocol: TCP
+      imagePullSecrets: 
+        - name: asyx-docker-prod-secret
