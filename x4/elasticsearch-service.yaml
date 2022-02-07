@@ -25,12 +25,11 @@ metadata:
    name: elasticsearch-clustering-configmaps-1
 data:
   elasticsearch.yml: |
-    cluster.name: xchange4-cluster
+    cluster.name: xchange4
     discovery.zen.join_timeout: 30s
     discovery.zen.minimum_master_nodes: 0
-    discovery.zen.ping.unicast.hosts: ["elasticsearch-service:9300"]
-    discovery.zen.no_master_block: all
-    cluster.initial_master_nodes: xchange4-cluster
+    discovery.seed_hosts: ["127.0.0.1"]
+    cluster.initial_master_nodes: xchange4
     transport.tcp.port: 9300
     network.host: 0.0.0.0
     node.name: xchange4
